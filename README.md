@@ -1,3 +1,5 @@
+> **Это рабочий форк** оригинального репозитория [ChiR24/Unreal_mcp](https://github.com/ChiR24/Unreal_mcp) — все авторские права и лицензия MIT принадлежат автору оригинала. Форк существует для локальных адаптаций под пайплайн синематиков UE 5.8 (ветка `uetools/custom`). Свежие обновления — из апстрима автора.
+
 # Unreal Engine MCP Server
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
