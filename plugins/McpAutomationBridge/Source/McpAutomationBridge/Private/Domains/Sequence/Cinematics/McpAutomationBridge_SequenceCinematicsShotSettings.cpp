@@ -1,6 +1,7 @@
 #include "Domains/Sequence/Cinematics/McpAutomationBridge_SequenceCinematics.h"
 
 #if WITH_EDITOR
+#include "LevelSequence.h"
 #include "MovieScene.h"
 #include "Sections/MovieSceneCinematicShotSection.h"
 #include "Tracks/MovieSceneCinematicShotTrack.h"

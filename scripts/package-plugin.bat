@@ -12,6 +12,11 @@ REM
 
 REM ─── Arguments ─────────────────────────────────────────────────────────────
 
+REM Capture script/repo paths BEFORE shift (shift also shifts %0, breaking %~dp0)
+set "SCRIPT_DIR=%~dp0"
+set "REPO_ROOT=%SCRIPT_DIR%.."
+set "PLUGIN_FILE=%REPO_ROOT%\plugins\McpAutomationBridge\McpAutomationBridge.uplugin"
+
 set "ENGINE_DIR=%~1"
 set "OUTPUT_DIR="
 set "EXTRA_ARGS="
@@ -44,10 +49,6 @@ if "!OUTPUT_DIR!"=="" set "OUTPUT_DIR=%cd%\build"
 if not exist "!OUTPUT_DIR!" mkdir "!OUTPUT_DIR!"
 for %%I in ("!OUTPUT_DIR!") do set "OUTPUT_DIR=%%~fI"
 
-set "SCRIPT_DIR=%~dp0"
-set "REPO_ROOT=%SCRIPT_DIR%.."
-set "PLUGIN_FILE=%REPO_ROOT%\plugins\McpAutomationBridge\McpAutomationBridge.uplugin"
-
 if not exist "%PLUGIN_FILE%" (
     echo ERROR: Plugin file not found: %PLUGIN_FILE%
     exit /b 1
@@ -65,7 +66,7 @@ REM ─── Extract version info ───────────────
 set "UE_VER=unknown"
 set "UE_VERSION_FILE=%ENGINE_DIR%\Engine\Build\Build.version"
 if exist "%UE_VERSION_FILE%" (
-    for /f "delims=" %%V in ('powershell -NoProfile -Command "$v = Get-Content -LiteralPath $args[0] -Raw | ConvertFrom-Json; Write-Output \"$($v.MajorVersion).$($v.MinorVersion)\"" "%UE_VERSION_FILE%"') do set "UE_VER=%%V"
+    for /f "delims=" %%V in ('powershell -NoProfile -Command "$v = Get-Content -LiteralPath $args[0] -Raw | ConvertFrom-Json; Write-Output ('{0}.{1}' -f $v.MajorVersion, $v.MinorVersion)" "%UE_VERSION_FILE%"') do set "UE_VER=%%V"
 )
 
 set "PLUGIN_VER=0.0.0"
@@ -73,7 +74,7 @@ for /f "delims=" %%V in ('powershell -NoProfile -Command "$d = Get-Content -Lite
 
 set "ZIP_NAME=McpAutomationBridge-v%PLUGIN_VER%-UE%UE_VER%-Win64.zip"
 set "ZIP_PATH=%OUTPUT_DIR%\%ZIP_NAME%"
-set "STAGING_DIR=%TEMP%\McpAutomationBridge-package-%RANDOM%%RANDOM%"
+set "STAGING_DIR=%~d0\mcp-pkg"
 set "PACKAGE_DIR=%STAGING_DIR%\McpAutomationBridge"
 set "SOURCE_PLUGIN_DIR=%STAGING_DIR%\source\McpAutomationBridge"
 set "SOURCE_PLUGIN_FILE=%SOURCE_PLUGIN_DIR%\McpAutomationBridge.uplugin"
@@ -144,10 +145,9 @@ if not defined OUTPUT_PLUGIN_DIR (
 set "OUTPUT_UPLUGIN=%OUTPUT_PLUGIN_DIR%\McpAutomationBridge.uplugin"
 if exist "%OUTPUT_UPLUGIN%" (
     echo Setting Installed=true in output .uplugin...
-    powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; $f=$args[0]; $d=Get-Content -LiteralPath $f -Raw | ConvertFrom-Json; $d | Add-Member -Force -NotePropertyName Installed -NotePropertyValue $true; $d | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $f } catch { Write-Error $_; exit 1 }" "%OUTPUT_UPLUGIN%"
+    powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; $f='%OUTPUT_UPLUGIN%'; $d=Get-Content -LiteralPath $f -Raw | ConvertFrom-Json; $d | Add-Member -Force -NotePropertyName Installed -NotePropertyValue $true; $d | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $f } catch { Write-Error $_; exit 1 }"
     if errorlevel 1 (
         echo ERROR: Failed to set Installed=true in .uplugin
-        if exist "%STAGING_DIR%" rmdir /s /q "%STAGING_DIR%"
         exit /b 1
     )
 )
@@ -157,13 +157,12 @@ REM ─── Zip ────────────────────�
 echo Creating archive: %ZIP_NAME%
 if exist "%ZIP_PATH%" del "%ZIP_PATH%"
 if exist "%OUTPUT_PLUGIN_DIR%\Intermediate" rmdir /s /q "%OUTPUT_PLUGIN_DIR%\Intermediate"
-powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; $pluginDir=$args[0]; $zipPath=$args[1]; Get-ChildItem -LiteralPath $pluginDir -Recurse -Directory -Filter '*.dSYM' | Sort-Object FullName -Descending | Remove-Item -Recurse -Force; Get-ChildItem -LiteralPath $pluginDir -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.debug', '.sym' } | Remove-Item -Force; Push-Location (Split-Path -Parent $pluginDir); Compress-Archive -LiteralPath 'McpAutomationBridge' -DestinationPath $zipPath -Force; Pop-Location } catch { Write-Error $_; exit 1 }" "%OUTPUT_PLUGIN_DIR%" "%ZIP_PATH%"
+powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; $pluginDir='%OUTPUT_PLUGIN_DIR%'; $zipPath='%ZIP_PATH%'; Get-ChildItem -LiteralPath $pluginDir -Recurse -Directory -Filter '*.dSYM' | Sort-Object FullName -Descending | Remove-Item -Recurse -Force; Get-ChildItem -LiteralPath $pluginDir -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.debug', '.sym' } | Remove-Item -Force; Push-Location (Split-Path -Parent $pluginDir); Compress-Archive -LiteralPath 'McpAutomationBridge' -DestinationPath $zipPath -Force; Pop-Location } catch { Write-Error $_; exit 1 }"
 if errorlevel 1 (
     echo ERROR: Failed to create zip archive.
-    if exist "%STAGING_DIR%" rmdir /s /q "%STAGING_DIR%"
     exit /b 1
 )
-powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $archive=[System.IO.Compression.ZipFile]::OpenRead($args[0]); try { $forbidden=@($archive.Entries | Where-Object { $normalized=$_.FullName.Replace('\','/').ToLowerInvariant(); [System.IO.Path]::GetExtension($_.FullName).ToLowerInvariant() -in '.pdb', '.debug', '.sym' -or $normalized.Contains('.dsym/') -or $normalized.EndsWith('.dsym') }); if ($forbidden.Count -gt 0) { throw ('Distribution archive contains debug symbols: ' + (($forbidden | ForEach-Object FullName) -join ', ')) } } finally { $archive.Dispose() } } catch { Write-Error $_; exit 1 }" "%ZIP_PATH%"
+powershell -NoProfile -Command "try { $ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $archive=[System.IO.Compression.ZipFile]::OpenRead('%ZIP_PATH%'); try { $forbidden=@($archive.Entries | Where-Object { $normalized=$_.FullName.Replace('\','/').ToLowerInvariant(); [System.IO.Path]::GetExtension($_.FullName).ToLowerInvariant() -in '.pdb', '.debug', '.sym' -or $normalized.Contains('.dsym/') -or $normalized.EndsWith('.dsym') }); if ($forbidden.Count -gt 0) { throw ('Distribution archive contains debug symbols: ' + (($forbidden | ForEach-Object FullName) -join ', ')) } } finally { $archive.Dispose() } } catch { Write-Error $_; exit 1 }"
 if errorlevel 1 (
     echo ERROR: Archive verification failed.
     if exist "%STAGING_DIR%" rmdir /s /q "%STAGING_DIR%"

@@ -1,3 +1,4 @@
+#include "Core/Compatibility/McpVersionCompatibility.h"
 #include "Domains/Sequence/RecordReplay/McpAutomationBridge_SequenceTakeRecorderInternal.h"
 
 #include "Containers/Ticker.h"

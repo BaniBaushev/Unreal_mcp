@@ -164,7 +164,11 @@ void CaptureRenderOutputData(const FMoviePipelineOutputData &OutputData,
     for (const TPair<FMoviePipelinePassIdentifier,
                      FMoviePipelineRenderPassOutputData> &Pass :
          Shot.RenderPassData) {
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 8
+      State->ReportedRenderPasses.Add(Pass.Key.Name);
+#else
       State->ReportedRenderPasses.Add(Pass.Key.Name.ToString());
+#endif
       for (const FString &File : Pass.Value.FilePaths)
         State->ReportedOutputFiles.Add(File);
     }

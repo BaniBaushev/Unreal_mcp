@@ -1,8 +1,10 @@
 #include "Domains/Sequence/McpAutomationBridge_SequencePathSecurity.h"
 
+#include "HAL/PlatformFile.h"
 #include "HAL/PlatformFileManager.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 #if PLATFORM_UNIX
 #include <sys/stat.h>

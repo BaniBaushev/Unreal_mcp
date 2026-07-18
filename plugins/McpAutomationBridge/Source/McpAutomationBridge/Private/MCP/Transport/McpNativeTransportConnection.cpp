@@ -218,12 +218,10 @@ void FMcpNativeTransport::HandleConnection(FSocket* ClientSocket)
 		FString ConnectionRemoteAddr;
 		if (ClientSocket)
 		{
-			TSharedRef<FInternetAddr> RemoteAddr =
-				ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
-			if (ClientSocket->GetAddress(*RemoteAddr))
-			{
-				ConnectionRemoteAddr = RemoteAddr->ToString(true);
-			}
+		TSharedRef<FInternetAddr> RemoteAddr =
+			ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+		ClientSocket->GetAddress(*RemoteAddr);
+		ConnectionRemoteAddr = RemoteAddr->ToString(true);
 		}
 		FString ResponseBody = HandleInitialize(
 			Rpc.Params, Rpc.Id, NewSessionId, ConnectionRemoteAddr);
