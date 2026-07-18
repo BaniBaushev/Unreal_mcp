@@ -2,6 +2,12 @@ import { isRecord } from '../validation/type-guards.js';
 
 const SUMMARY_SKIP_KEYS = new Set(['requestId', 'type', 'data', 'result', 'warnings', 'imageBase64']);
 
+// Output size limits (patched 18.07 for the BabaYaga58 project): defaults raised from
+// 150 chars / 30 items / 8 entries; each is overridable via env without a rebuild.
+const MAX_STRING = Number(process.env.MCP_FMT_MAX_STRING) || 50000;
+const MAX_ITEMS = Number(process.env.MCP_FMT_MAX_ITEMS) || 100;
+const MAX_ENTRIES = Number(process.env.MCP_FMT_MAX_ENTRIES) || 32;
+
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
@@ -44,7 +50,7 @@ function formatRecordListItem(record: Record<string, unknown>): string {
     if (value !== undefined && value.trim() !== '') return value;
   }
 
-  const entries = Object.entries(record).filter(([, value]) => value !== undefined && value !== null).slice(0, 4);
+  const entries = Object.entries(record).filter(([, value]) => value !== undefined && value !== null).slice(0, 8);
   if (entries.length === 0) return '{}';
   const suffix = Object.keys(record).length > entries.length ? ' ...' : '';
   return `{ ${entries.map(([key, value]) => `${key}=${formatNestedValue(value)}`).join(', ')}${suffix} }`;
@@ -52,13 +58,13 @@ function formatRecordListItem(record: Record<string, unknown>): string {
 
 function formatValue(val: unknown): string {
   if (val === null || val === undefined) return '';
-  if (typeof val === 'string') return val.length > 150 ? val.slice(0, 150) + '...' : val;
+  if (typeof val === 'string') return val.length > MAX_STRING ? val.slice(0, MAX_STRING) + '...' : val;
   if (typeof val === 'number' || typeof val === 'boolean') return String(val);
 
   if (Array.isArray(val)) {
     if (val.length === 0) return '[] (0)';
-    const items = val.slice(0, 30).map(v => isRecord(v) ? formatRecordListItem(v) : String(v));
-    const suffix = val.length > 30 ? `, ... (+${val.length - 30} more)` : '';
+    const items = val.slice(0, MAX_ITEMS).map(v => isRecord(v) ? formatRecordListItem(v) : String(v));
+    const suffix = val.length > MAX_ITEMS ? `, ... (+${val.length - MAX_ITEMS} more)` : '';
     return `[${items.join(', ')}${suffix}] (${val.length})`;
   }
 
@@ -70,9 +76,9 @@ function formatValue(val: unknown): string {
       const z = val.z ?? val.roll ?? 0;
       return `[${x}, ${y}, ${z}]`;
     }
-    const entries = Object.entries(val).slice(0, 8);
+    const entries = Object.entries(val).slice(0, MAX_ENTRIES);
     const formatted = entries.map(([k, v]) => `${k}=${formatNestedValue(v)}`);
-    return `{ ${formatted.join(', ')}${keys.length > 8 ? ' ...' : ''} }`;
+    return `{ ${formatted.join(', ')}${keys.length > MAX_ENTRIES ? ' ...' : ''} }`;
   }
 
   return String(val);
